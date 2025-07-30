@@ -45,8 +45,9 @@ install_manifest.txt
 # ------------------------------------------------------------------------------
 # Arquivos de Configuração de IDEs e Editores
 # ------------------------------------------------------------------------------
-# Visual Studio Code
+# Visual Studio Code/ VS
 .vscode/
+.vs/
 
 # JetBrains (CLion,rustrover etc.)
 .idea/
