@@ -1,0 +1,107 @@
+# ==============================================================================
+# Workflow de Integração Contínua (CI) para o projeto 'gitph'
+#
+# Este workflow é executado automaticamente pelo GitHub Actions em cada push
+# ou pull request para as branches principais.
+#
+# OBJETIVOS:
+# 1. Validar que o projeto compila com sucesso nos principais sistemas
+#    operacionais (Linux, Windows, macOS).
+# 2. Garantir que o código C++ é compilado e lincado corretamente.
+# 3. Verificar a formatação do código e rodar o linter (Clippy).
+# 4. Executar a suíte de testes (se houver).
+# 5. Fornecer o status (sucesso/falha) para o "selo de build" no README.
+# ==============================================================================
+
+# Nome do workflow que aparecerá na aba "Actions" do GitHub.
+name: Project CI & Build Verification
+
+# --- Gatilhos (Triggers) ---
+# Define quando este workflow deve ser executado.
+on:
+  # Executa em pushes para as branches 'main' e 'master'.
+  push:
+    branches: [ "main", "master" ]
+  # Executa em pull requests que têm como alvo as branches 'main' e 'master'.
+  pull_request:
+    branches: [ "main", "master" ]
+
+# --- Variáveis de Ambiente ---
+# Define variáveis de ambiente globais para todos os jobs.
+env:
+  # Força o Cargo a usar cores nos logs, o que melhora a legibilidade.
+  CARGO_TERM_COLOR: always
+
+# --- Definição dos Jobs ---
+jobs:
+  # Definimos um único job chamado 'build_and_test'.
+  build_and_test:
+    # Nome amigável para o job que aparecerá na UI do GitHub.
+    name: Build & Test on ${{ matrix.os }}
+
+    # --- Matriz de Estratégia ---
+    # Esta é a chave para testar em múltiplas plataformas sem duplicar código.
+    # O GitHub Actions criará um job separado para cada 'os' nesta lista.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    # Define o tipo de máquina virtual (runner) a ser usada, baseado na matriz.
+    runs-on: ${{ matrix.os }}
+
+    # --- Passos (Steps) ---
+    # A sequência de ações a serem executadas em cada job.
+    steps:
+      # Passo 1: Checkout do Código
+      # Usa a action oficial para baixar o código do seu repositório para o runner.
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Passo 2: Instalar o Toolchain do Rust
+      # Usa uma action da comunidade altamente confiável para instalar rustc, cargo, etc.
+      # Também instala componentes extras como 'clippy' e 'rustfmt'.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+
+      # Passo 3: Cache de Dependências do Cargo
+      # Este passo é uma otimização crucial. Ele armazena os diretórios de
+      # dependências do Cargo entre execuções. Se o Cargo.lock não mudou,
+      # as execuções futuras serão muito mais rápidas.
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          # A chave do cache é baseada no SO e no hash do Cargo.lock.
+          # Se o Cargo.lock mudar, uma nova chave é gerada, invalidando o cache antigo.
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      # Passo 4: Verificação de Qualidade do Código (Rápido e Essencial)
+      # Executa antes do build, pois são verificações rápidas.
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+      - name: Run Clippy linter
+        # O flag `-- -D warnings` trata todos os avisos do Clippy como erros,
+        # forçando um padrão de código mais alto e falhando o build se houver lints.
+        run: cargo clippy --all-targets -- -D warnings
+
+      # Passo 5: Compilar o Projeto em Modo Release
+      # Este é o teste principal. Ele executa `cargo build`, que por sua vez
+      # executa nosso `build.rs` para compilar o C++ e, em seguida, compila
+      # todo o código Rust.
+      - name: Build project in release mode
+        run: cargo build --release --verbose
+
+      # Passo 6: Executar Testes
+      # Mesmo que ainda não tenhamos testes, é uma boa prática incluir este passo.
+      # Ele garante que a suíte de testes (se houver) compila e passa.
+      - name: Run tests
+        run: cargo test --verbose
