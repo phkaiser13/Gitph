@@ -1,7 +1,7 @@
 /**
  * Copyright © Pedro H. Garcia (phkaiser13)
- * SPDX-License-Identifier: GPL-2.0
- * This file is licensed under the GNU General Public License v2.0.
+ * SPDX-License-Identifier: GPL-3.0
+ * This file is licensed under the GNU General Public License v3.0.
  */
 
  // ==============================================================================
