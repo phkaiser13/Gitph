@@ -29,3 +29,6 @@ pub mod remote;
 
 /// Módulo para criar, listar e mudar de branches.
 pub mod branch;
+
+/// Módulo para clonar repositórios remotos.
+pub mod clone;
