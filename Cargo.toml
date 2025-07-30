@@ -9,14 +9,15 @@
 # --- Metadados Essenciais do Pacote ---
 name    = "gitph"
 version = "0.1.0"
-authors = ["Seu Nome <seu.email@exemplo.com>"] # IMPORTANTE: Altere esta linha
+authors = ["Pedro h.Garcia <phgarcia2008@Icloud.com>"]
 edition = "2021"
-license = "GPL-2.0"
+license = "GPL-3.0-or-later"
 description = """
 Um assistente de linha de comando moderno e interativo para otimizar
 fluxos de trabalho com Git, GitHub e GitLab.
 """
-repository = "https://github.com/phkaiser13/gitph" # Exemplo de URL do repositório
+repository = "https://github.com/phkaiser13/gitph"
+readme = "README.md"
 
 # ==============================================================================
 # Dependências da Aplicação Principal
@@ -42,13 +43,22 @@ indicatif = "0.17"
 
 # --- Para Chamadas de API (GitHub/GitLab) e Processamento de Dados ---
 # `reqwest` é um cliente HTTP ergonômico e poderoso para fazer chamadas de API.
-# O feature "json" já inclui o `serde_json` para nós.
-reqwest = { version = "0.11", features = ["json"] }
+# Adicionamos o feature "blocking" para usar o cliente síncrono, evitando
+# a necessidade de um runtime async (como Tokio) para nossa CLI.
+reqwest = { version = "0.11", features = ["json", "blocking"] }
 
 # `serde` é o framework padrão para serialização e desserialização de dados
 # em Rust. Usaremos para converter respostas JSON das APIs em structs Rust.
 serde = { version = "1.0", features = ["derive"] }
 
+# `toml` fornece a capacidade de analisar (parse) e serializar dados n  o
+# formato TOML, que é ideal para arquivos de configuração legíveis por humanos.
+toml = "0.8"
+
+# `directories` nos ajuda a encontrar caminhos de diretórios padrão
+# (como o de configuração ou de cache) de forma consistente em diferentes
+# sistemas operacionais (Windows, macOS, Linux).
+directories = "5.0"
 
 # --- Para Melhor Tratamento de Erros ---
 # `anyhow` simplifica o tratamento de erros em aplicações, fornecendo um

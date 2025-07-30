@@ -4,9 +4,10 @@
  * This file is licensed under the GNU General Public License v3.0.
  */
 
-// Trazemos os módulos que usaremos para o escopo local.
-use crate::git_wrapper::{commit, push, status::{self, ChangeType, GitStatus}};
-use crate::ui::prompts; // Importamos nosso novo módulo de prompts.
+// Trazemos todos os módulos que usaremos para o escopo local.
+use crate::api_client;
+use crate::git_wrapper::{commit, push, remote, status::{self, ChangeType, GitStatus}, tag};
+use crate::ui::prompts;
 use anyhow::Result;
 use console::{style, Term};
 use dialoguer::{theme::ColorfulTheme, Select};
@@ -57,11 +58,11 @@ pub fn show_main_menu() -> Result<()> {
     Ok(())
 }
 
-
 /// Despacha a ação selecionada no menu para a função correspondente.
 fn handle_menu_action(index: usize) -> Result<bool> {
     match index {
         1 => handle_snd_action()?,
+        2 => handle_rls_action()?, // Nova ação
         4 => handle_status_action()?,
         9 => {
             println!("Obrigado por usar o gitph. Até logo!");
@@ -77,76 +78,144 @@ fn handle_menu_action(index: usize) -> Result<bool> {
     Ok(true)
 }
 
-/// Orquestra o fluxo de trabalho "Adicionar, Commitar, Pushar" (SND).
+/// Lida com a ação "Adicionar, Commitar, Pushar".
+/// Esta função agora é um simples wrapper em torno da lógica reutilizável.
 fn handle_snd_action() -> Result<()> {
     println!("{}", style("Iniciando fluxo de trabalho: Adicionar, Commitar, Pushar").bold().cyan());
     println!("----------------------------------------------------------");
+    // A lógica real foi movida para `run_snd_flow` para ser reutilizada.
+    let _ = run_snd_flow()?;
+    Ok(())
+}
 
-    // --- PASSO 1: Adicionar todos os arquivos ao Stage ---
-    println!("1. Adicionando todos os arquivos ao stage (`git add .`)...");
-    if let Err(e) = commit::add_all() {
-        println!("{}", style("Erro ao adicionar arquivos:").red().bold());
-        println!("{}", style(e).red());
-        return Ok(()); // Retorna Ok para não fechar o programa, apenas parar o fluxo.
-    }
-    println!("{}", style("✔ Arquivos adicionados com sucesso.").green());
+/// Orquestra o fluxo de trabalho "SND e Criar Release".
+fn handle_rls_action() -> Result<()> {
+    println!("{}", style("Iniciando fluxo de trabalho: Criar Nova Release").bold().cyan());
     println!("----------------------------------------------------------");
 
-    // --- PASSO 2: Verificar se há algo para commitar ---
-    // Decisão de engenharia: Em vez de chamar `git commit` cegamente e tratar o
-    // erro "nothing to commit", nós verificamos o status proativamente.
-    // Isso proporciona uma experiência de usuário muito melhor.
-    let status = status::get_status()?;
-    let has_staged_files = status.files.iter().any(|f| f.staged_status.is_some());
-
-    if !has_staged_files {
-        println!("{}", style("Nenhuma alteração no stage para commitar. O fluxo de trabalho foi concluído.").yellow());
+    // --- PASSO 1: Executar o fluxo SND (Add, Commit, Push) ---
+    // Reutilizamos a lógica `snd` para garantir que o repositório remoto
+    // esteja sincronizado antes de criarmos a tag e a release.
+    if !run_snd_flow()? {
+        // Se `run_snd_flow` retornar `false`, significa que o fluxo foi
+        // interrompido (ex: nada para commitar, ou cancelado pelo usuário).
+        // Nesse caso, abortamos o fluxo de release também.
+        println!("\n{}", style("Fluxo de trabalho de release abortado pois a sincronização inicial não foi concluída.").yellow());
         return Ok(());
     }
+    println!("----------------------------------------------------------");
+    println!("✔ Sincronização inicial concluída.");
 
-    // --- PASSO 3: Obter a Mensagem de Commit ---
-    println!("2. Preparando para o commit...");
-    let commit_message = match prompts::get_commit_message()? {
-        Some(message) => {
-            if message.trim().is_empty() {
-                println!("{}", style("Mensagem de commit vazia. Operação cancelada.").red());
-                return Ok(());
-            }
-            message
-        },
-        None => {
-            // O usuário pressionou Esc para cancelar.
-            println!("{}", style("Operação de commit cancelada pelo usuário.").yellow());
+    // --- PASSO 2: Obter informações do repositório para a API ---
+    println!("\n2. Obtendo informações do repositório remoto...");
+    let (owner, repo) = match remote::get_origin_url().and_then(|url| remote::parse_github_owner_and_repo(&url)) {
+        Ok(data) => data,
+        Err(e) => {
+            println!("{}", style("Erro:").red().bold());
+            println!("{}", style(e).red());
+            return Ok(());
+        }
+    };
+    println!("✔ Repositório detectado: {}/{}", owner, repo);
+
+    // --- PASSO 3: Obter detalhes da Release do usuário ---
+    let tag_name = match prompts::get_commit_message()? { // Reutilizando o prompt de commit para o nome da tag
+        Some(name) if !name.trim().is_empty() => name,
+        _ => {
+            println!("{}", style("Nome da tag inválido ou operação cancelada.").yellow());
             return Ok(());
         }
     };
 
-    // --- PASSO 4: Executar o Commit ---
-    if let Err(e) = commit::commit(&commit_message) {
-        println!("{}", style("Erro ao criar o commit:").red().bold());
+    let release_title = tag_name.clone(); // Sugerimos o nome da tag como título da release.
+
+    let release_notes = match prompts::get_release_notes()? {
+        Some(notes) if !notes.trim().is_empty() => notes,
+        _ => {
+            println!("{}", style("Notas da release vazias ou operação cancelada.").yellow());
+            return Ok(());
+        }
+    };
+
+    // --- PASSO 4: Criar e Enviar a Tag Git ---
+    println!("\n3. Criando e enviando a tag Git...");
+    if let Err(e) = tag::create_annotated_tag(&tag_name, &release_title) {
+        println!("{}", style("Erro ao criar a tag local:").red().bold());
         println!("{}", style(e).red());
         return Ok(());
     }
-    println!("{}", style("✔ Commit criado com sucesso.").green());
-    println!("----------------------------------------------------------");
+    if let Err(e) = tag::push_tag(&tag_name) {
+        println!("{}", style("Erro ao enviar a tag para o remoto:").red().bold());
+        println!("{}", style(e).red());
+        return Ok(());
+    }
+    println!("✔ Tag '{}' criada e enviada com sucesso.", tag_name);
 
-    // --- PASSO 5: Executar o Push ---
-    println!("3. Enviando para o repositório remoto (`git push`)...");
-    match push::push() {
-        Ok(success_message) => {
-            println!("{}", style("✔ Push realizado com sucesso.").green());
-            // Exibe a mensagem informativa retornada pelo `git push`.
-            if !success_message.is_empty() {
-                println!("\n-- Resposta do Servidor Remoto --\n{}", style(success_message).dim());
-            }
+    // --- PASSO 5: Criar a Release no GitHub ---
+    println!("\n4. Criando a Release no GitHub...");
+    match api_client::github::create_release(&owner, &repo, &tag_name, &release_title, &release_notes) {
+        Ok(()) => {
+            println!("{}", style("✔ Release criada com sucesso no GitHub!").green().bold());
+            println!("Acesse em: https://github.com/{}/{}/releases/tag/{}", owner, repo, tag_name);
         }
         Err(e) => {
-            println!("{}", style("Erro ao realizar o push:").red().bold());
+            println!("{}", style("Erro ao criar a release no GitHub:").red().bold());
             println!("{}", style(e).red());
         }
     }
 
     Ok(())
+}
+
+/// Executa a lógica principal de Adicionar, Commitar e Pushar.
+/// Esta função foi refatorada para ser reutilizável.
+/// Retorna `Ok(true)` se o fluxo foi concluído, `Ok(false)` se foi interrompido.
+fn run_snd_flow() -> Result<bool> {
+    // Adicionar
+    commit::add_all().map_err(|e| {
+        println!("{}", style("Erro ao adicionar arquivos:").red().bold());
+        println!("{}", style(e).red());
+        e
+    })?;
+    println!("✔ Arquivos adicionados ao stage.");
+
+    // Verificar se há algo para commitar
+    let status = status::get_status()?;
+    if !status.files.iter().any(|f| f.staged_status.is_some()) {
+        println!("{}", style("Nenhuma alteração no stage para commitar.").yellow());
+        return Ok(true); // Consideramos sucesso, pois não há nada a fazer.
+    }
+
+    // Obter mensagem e Commitar
+    let commit_message = match prompts::get_commit_message()? {
+        Some(message) if !message.trim().is_empty() => message,
+        _ => {
+            println!("{}", style("Commit cancelado.").yellow());
+            return Ok(false); // Fluxo interrompido.
+        }
+    };
+    commit::commit(&commit_message).map_err(|e| {
+        println!("{}", style("Erro ao criar o commit:").red().bold());
+        println!("{}", style(e).red());
+        e
+    })?;
+    println!("✔ Commit criado com sucesso.");
+
+    // Pushar
+    match push::push() {
+        Ok(msg) => {
+            println!("{}", style("✔ Push realizado com sucesso.").green());
+            if !msg.is_empty() {
+                println!("{}", style(msg).dim());
+            }
+        }
+        Err(e) => {
+            println!("{}", style("Erro ao realizar o push:").red().bold());
+            println!("{}", style(e).red());
+            return Err(e);
+        }
+    }
+    Ok(true) // Fluxo concluído com sucesso.
 }
 
 

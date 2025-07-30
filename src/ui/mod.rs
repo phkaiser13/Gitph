@@ -5,41 +5,35 @@
  */
 
 // ==============================================================================
-// Módulo Raiz do Wrapper Git
+// Módulo Raiz da Interface de Usuário (UI) do Terminal
 //
-// Este módulo é a única interface autorizada para interagir com o executável
-// do Git no sistema. Ele abstrai a complexidade da execução de comandos
-// externos, captura de saída e tratamento de erros específicos do Git.
+// Este módulo encapsula toda a lógica relacionada à apresentação de informações
+// e à interação com o usuário no console.
 //
 // RESPONSABILIDADES:
-// - Construir e executar comandos `git`.
-// - Capturar `stdout` e `stderr` dos processos Git.
-// - Converter códigos de saída e erros de `stderr` em erros Rust significativos.
-// - Fornecer uma API segura e idiomática para operações Git comuns.
+// - Desenhar menus de seleção interativos.
+// - Solicitar entradas de texto, confirmações e edições multi-linha (prompts).
+// - Exibir tabelas de dados formatadas.
+// - Mostrar indicadores de progresso (spinners, barras).
+// - Controlar cores e estilos do texto no terminal.
 //
-// Nenhum outro módulo na aplicação deve chamar `std::process::Command` para
-// executar `git` diretamente. Toda a interação deve passar por este wrapper.
+// Este módulo se concentra no "COMO" as informações são apresentadas, separando
+// a lógica de apresentação da lógica de negócio da aplicação.
 // ==============================================================================
 
 // --- Declaração de Sub-módulos ---
-// Cada arquivo dentro do diretório `git_wrapper` representa uma categoria de
-// comandos Git. O `pub mod` torna o sub-módulo e seu conteúdo público
-// acessível para outros módulos que usam `git_wrapper`.
-
-/// Módulo contendo a lógica para o comando `git status`.
-pub mod status;
-
-/// Módulo contendo a lógica para os comandos `git add` e `git commit`.
-pub mod commit;
-
-/// Módulo contendo a lógica para o comando `git push`.
-pub mod push;
-
-// À medida que implementarmos mais funcionalidades, adicionaremos mais módulos aqui.
-// Ex: pub mod clone;
+// Declaramos os arquivos que compõem o módulo `ui`. O `pub` na frente de `mod`
+// torna o sub-módulo acessível a partir de outros módulos fora de `ui`
+// (por exemplo, para que `main.rs` possa chamar `ui::menus::...` ou `ui::prompts::...`).
 
 /// Módulo para renderizar menus de seleção interativos.
 pub mod menus;
 
 /// Módulo para solicitar entradas de texto, senhas e confirmações do usuário.
-pub mod prompts; // Adicionamos esta linha para declarar o novo módulo.
+pub mod prompts;
+
+// NOTA DE ARQUITETURA:
+// Mantemos os namespaces explícitos (ex: `ui::menus::show_main_menu()` em vez de
+// `ui::show_main_menu()`) para maior clareza sobre de onde cada funcionalidade
+// de UI está vindo. Isso torna o código mais fácil de ler e entender, especialmente
+// à medida que o módulo `ui` cresce.
