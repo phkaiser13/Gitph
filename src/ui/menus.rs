@@ -4,13 +4,15 @@
  * This file is licensed under the GNU General Public License v3.0.
  */
 
-use crate::git_wrapper::status::{self, ChangeType, GitStatus};
+// Trazemos os módulos que usaremos para o escopo local.
+use crate::git_wrapper::{commit, push, status::{self, ChangeType, GitStatus}};
+use crate::ui::prompts; // Importamos nosso novo módulo de prompts.
 use anyhow::Result;
 use console::{style, Term};
 use dialoguer::{theme::ColorfulTheme, Select};
-use std::io::BufRead; // Para a pausa
+use std::io::BufRead;
 
-/// Exibe o menu principal da aplicação em um loop contínuo.
+// ... (função show_main_menu existente, sem alterações) ...
 pub fn show_main_menu() -> Result<()> {
     let term = Term::stdout();
     let options = &[
@@ -41,10 +43,9 @@ pub fn show_main_menu() -> Result<()> {
         match selection {
             Some(index) => {
                 term.clear_screen()?;
-                // A ação é executada em uma função separada para manter o loop limpo.
                 let continue_loop = handle_menu_action(index)?;
                 if !continue_loop {
-                    break; // Sai do loop se a ação retornar `false` (ex: Sair).
+                    break;
                 }
             }
             None => {
@@ -56,15 +57,15 @@ pub fn show_main_menu() -> Result<()> {
     Ok(())
 }
 
+
 /// Despacha a ação selecionada no menu para a função correspondente.
-/// Retorna `Ok(true)` para continuar o loop ou `Ok(false)` para sair.
 fn handle_menu_action(index: usize) -> Result<bool> {
     match index {
-        // ... outros casos ...
+        1 => handle_snd_action()?,
         4 => handle_status_action()?,
         9 => {
             println!("Obrigado por usar o gitph. Até logo!");
-            return Ok(false); // Sinaliza para sair do loop.
+            return Ok(false);
         }
         _ => {
             println!("Funcionalidade ainda não implementada.");
@@ -73,16 +74,88 @@ fn handle_menu_action(index: usize) -> Result<bool> {
 
     println!("\nPressione Enter para voltar ao menu principal...");
     let _ = std::io::stdin().lock().read_line(&mut String::new());
-    Ok(true) // Sinaliza para continuar o loop.
+    Ok(true)
 }
 
-/// Lida com a ação "Ver Status". Chama o wrapper Git e exibe o resultado.
+/// Orquestra o fluxo de trabalho "Adicionar, Commitar, Pushar" (SND).
+fn handle_snd_action() -> Result<()> {
+    println!("{}", style("Iniciando fluxo de trabalho: Adicionar, Commitar, Pushar").bold().cyan());
+    println!("----------------------------------------------------------");
+
+    // --- PASSO 1: Adicionar todos os arquivos ao Stage ---
+    println!("1. Adicionando todos os arquivos ao stage (`git add .`)...");
+    if let Err(e) = commit::add_all() {
+        println!("{}", style("Erro ao adicionar arquivos:").red().bold());
+        println!("{}", style(e).red());
+        return Ok(()); // Retorna Ok para não fechar o programa, apenas parar o fluxo.
+    }
+    println!("{}", style("✔ Arquivos adicionados com sucesso.").green());
+    println!("----------------------------------------------------------");
+
+    // --- PASSO 2: Verificar se há algo para commitar ---
+    // Decisão de engenharia: Em vez de chamar `git commit` cegamente e tratar o
+    // erro "nothing to commit", nós verificamos o status proativamente.
+    // Isso proporciona uma experiência de usuário muito melhor.
+    let status = status::get_status()?;
+    let has_staged_files = status.files.iter().any(|f| f.staged_status.is_some());
+
+    if !has_staged_files {
+        println!("{}", style("Nenhuma alteração no stage para commitar. O fluxo de trabalho foi concluído.").yellow());
+        return Ok(());
+    }
+
+    // --- PASSO 3: Obter a Mensagem de Commit ---
+    println!("2. Preparando para o commit...");
+    let commit_message = match prompts::get_commit_message()? {
+        Some(message) => {
+            if message.trim().is_empty() {
+                println!("{}", style("Mensagem de commit vazia. Operação cancelada.").red());
+                return Ok(());
+            }
+            message
+        },
+        None => {
+            // O usuário pressionou Esc para cancelar.
+            println!("{}", style("Operação de commit cancelada pelo usuário.").yellow());
+            return Ok(());
+        }
+    };
+
+    // --- PASSO 4: Executar o Commit ---
+    if let Err(e) = commit::commit(&commit_message) {
+        println!("{}", style("Erro ao criar o commit:").red().bold());
+        println!("{}", style(e).red());
+        return Ok(());
+    }
+    println!("{}", style("✔ Commit criado com sucesso.").green());
+    println!("----------------------------------------------------------");
+
+    // --- PASSO 5: Executar o Push ---
+    println!("3. Enviando para o repositório remoto (`git push`)...");
+    match push::push() {
+        Ok(success_message) => {
+            println!("{}", style("✔ Push realizado com sucesso.").green());
+            // Exibe a mensagem informativa retornada pelo `git push`.
+            if !success_message.is_empty() {
+                println!("\n-- Resposta do Servidor Remoto --\n{}", style(success_message).dim());
+            }
+        }
+        Err(e) => {
+            println!("{}", style("Erro ao realizar o push:").red().bold());
+            println!("{}", style(e).red());
+        }
+    }
+
+    Ok(())
+}
+
+
+// ... (funções handle_status_action, display_git_status, format_change_type existentes) ...
 fn handle_status_action() -> Result<()> {
     println!("Obtendo status do repositório Git...\n");
     match status::get_status() {
         Ok(status) => display_git_status(&status),
         Err(e) => {
-            // Exibe o erro de forma destacada se o comando falhar.
             println!("{}", style("Erro ao obter status:").red().bold());
             println!("{}", style(e).red());
         }
@@ -90,21 +163,15 @@ fn handle_status_action() -> Result<()> {
     Ok(())
 }
 
-/// Exibe a estrutura `GitStatus` de forma formatada e colorida.
 fn display_git_status(status: &GitStatus) {
-    // Exibe a informação da branch.
     println!("{}", style(&status.branch_info).yellow());
-
     if status.files.is_empty() {
         println!("\n{}", style("Repositório limpo. Nada a commitar.").green());
         return;
     }
-
-    // Separa os arquivos em categorias para exibição.
     let mut staged = Vec::new();
     let mut unstaged = Vec::new();
     let mut untracked = Vec::new();
-
     for file in &status.files {
         if file.staged_status == Some(ChangeType::Untracked) {
             untracked.push(format!("  {}", file.path));
@@ -117,8 +184,6 @@ fn display_git_status(status: &GitStatus) {
             unstaged.push(format!("  {}: {}", format_change_type(change), file.path));
         }
     }
-
-    // Exibe cada seção apenas se ela contiver arquivos.
     if !staged.is_empty() {
         println!("\n{}", style("Alterações para Commit (Staged):").green().bold());
         println!("{}", style("(use 'git reset HEAD <arquivo>...' para remover do stage)").dim());
@@ -136,7 +201,6 @@ fn display_git_status(status: &GitStatus) {
     }
 }
 
-/// Formata um `ChangeType` em uma string colorida para exibição.
 fn format_change_type(change: &ChangeType) -> String {
     match change {
         ChangeType::Added => style("ADICIONADO").green().to_string(),
