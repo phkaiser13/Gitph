@@ -4,68 +4,54 @@
  * This file is licensed under the GNU General Public License v3.0.
  */
 
- // ==============================================================================
- // Interface Pública para o Módulo Nativo 'git_optim'
- //
- // Este arquivo de cabeçalho define a API (Application Programming Interface)
- // do nosso módulo C++. As funções declaradas aqui serão implementadas em
- // `optim.cpp` e expostas para serem chamadas a partir do código Rust.
- // ==============================================================================
+// ==============================================================================
+// Interface Pública para o Módulo Nativo 'git_optim'
+//
+// Este arquivo de cabeçalho define o "contrato" da nossa biblioteca C++.
+// As funções aqui declaradas são a face pública do módulo, expostas para
+// serem consumidas por outras partes do sistema, como nosso código Rust.
+// ==============================================================================
 
- // `#pragma once` é uma diretiva de pré-processador que garante que este arquivo
- // seja incluído apenas uma vez durante a compilação, evitando erros de
- // redefinição. É uma alternativa moderna e mais simples aos include guards
- // tradicionais (#ifndef/#define/#endif).
- #pragma once
+#pragma once
 
- // Para garantir a interoperabilidade com outras linguagens (como Rust),
- // precisamos usar tipos de dados que tenham um tamanho e representação
- // bem definidos. `cstdint` nos dá acesso a tipos como `int32_t`.
- #include <cstdint>
+#include <cstdint> // Para tipos de inteiros de tamanho fixo como `int32_t`.
 
- // O bloco `extern "C"` é ESSENCIAL para a FFI (Foreign Function Interface).
- // Ele instrui o compilador C++ a exportar estas funções com uma convenção de
- // chamada C, que possui um ABI (Application Binary Interface) estável e
- // previsível. Sem isso, o C++ aplicaria "name mangling" aos nomes das funções,
- // tornando impossível para o Rust encontrá-las durante a lincagem.
- extern "C" {
+// O bloco `extern "C"` é a pedra angular da interoperabilidade (FFI).
+// Ele instrui o compilador C++ a não aplicar o "name mangling" do C++
+// aos nomes das funções, em vez disso, exportá-las usando a convenção de
+// chamada C, que é estável e compreendida por outras linguagens como o Rust.
+extern "C" {
 
- /**
-  * @brief Uma função de teste simples para verificar se a ligação FFI funciona.
-  *
-  * Esta função não recebe argumentos e não retorna valor. Seu único propósito
-  * é imprimir uma mensagem no console a partir do código C++, confirmando que
-  * a chamada do Rust para o C++ foi bem-sucedida.
-  */
- void hello_from_cpp();
+/**
+ * @brief Imprime uma mensagem de diagnóstico para verificar a ligação FFI.
+ *
+ * Esta função serve como um "ping" para confirmar que o código Rust pode
+ * chamar com sucesso uma função na biblioteca C++ compilada.
+ */
+void hello_from_cpp();
 
- /**
-  * @brief Realiza um cálculo de exemplo para demonstrar a passagem de dados.
-  *
-  * Esta função demonstra a passagem de um tipo primitivo (um inteiro) do Rust
-  * para o C++, a execução de uma operação e o retorno do resultado para o Rust.
-  *
-  * @param input Um inteiro de 32 bits assinado vindo do chamador (Rust).
-  * @return O valor de entrada multiplicado por 2 e somado com 10.
-  */
- int32_t perform_complex_calculation(int32_t input);
+/**
+ * @brief Executa um cálculo simples para demonstrar a passagem de dados.
+ *
+ * @param input Um inteiro de 32 bits assinado, passado pelo chamador (Rust).
+ * @return O resultado de uma operação matemática sobre a entrada.
+ */
+int32_t perform_complex_calculation(int32_t input);
 
- /**
-  * @brief Calcula o comprimento de uma string codificada em UTF-8.
-  *
-  * Demonstra a passagem de um ponteiro de dados (uma string no estilo C) do
-  * Rust para o C++.
-  *
-  * @param text Um ponteiro para o início de uma string de caracteres terminada
-  *             com nulo (null-terminated C-style string).
-  *
-  * @return O número de bytes na string (excluindo o terminador nulo). Retorna
-  *         -1 se o ponteiro de entrada for nulo.
-  *
-  * @note FFI Safety: O chamador (Rust) é responsável por garantir que `text`
-  *       seja um ponteiro válido para uma string null-terminated. Passar um
-  *       ponteiro inválido ou não-terminado resultará em comportamento indefinido.
-  */
- int32_t get_string_length_from_cpp(const char* text);
+/**
+ * @brief Calcula o comprimento de uma string no estilo C (terminada em nulo).
+ *
+ * @param text Um ponteiro para o primeiro caractere de uma string UTF-8
+ *             terminada com o caractere nulo ('\0').
+ *
+ * @return O número de bytes na string (sem incluir o terminador nulo).
+ *         Retorna -1 se o ponteiro de entrada for um ponteiro nulo.
+ *
+ * @safety O chamador (Rust) é 100% responsável por garantir que `text`
+ *         aponte para um bloco de memória válido e que a string seja
+ *         corretamente terminada em nulo. Passar um ponteiro inválido
+ *         resultará em comportamento indefinido (provavelmente um crash).
+ */
+int32_t get_string_length_from_cpp(const char* text);
 
- } // extern "C"
+} // Fim do bloco extern "C"

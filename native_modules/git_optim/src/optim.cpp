@@ -7,62 +7,36 @@
 // ==============================================================================
 // Implementação do Módulo Nativo 'git_optim'
 //
-// Este arquivo contém a lógica de implementação para as funções declaradas
-// na interface pública em `optim.h`.
+// Este arquivo contém a lógica de negócio para as funções declaradas em `optim.h`.
 // ==============================================================================
 
-// Incluímos nosso próprio cabeçalho para garantir que a implementação
-// corresponda à declaração. Esta é uma prática padrão em C/C++.
-#include "optim.h"
+#include "optim.h" // Incluímos nosso próprio cabeçalho para validação pelo compilador.
 
-// Incluímos as bibliotecas padrão do C++ que usaremos.
-#include <iostream> // Para std::cout (saída padrão)
-#include <cstring>  // Para strlen (cálculo de comprimento de string C)
+#include <iostream> // Para `std::cout` e `std::endl`.
+#include <cstring>  // Para `strlen`.
 
-// Note que não precisamos do bloco `extern "C"` aqui. O compilador já sabe
-// que estas funções devem ter ligação C porque o cabeçalho `optim.h`, que
-// já contém o `extern "C"`, foi incluído.
-
-/**
- * @brief Implementação de `hello_from_cpp`.
- */
 void hello_from_cpp() {
-    // Usamos std::cout para imprimir no console. O std::endl garante que a
-    // saída seja "flushed" (enviada imediatamente para o terminal).
+    // `std::endl` não apenas adiciona uma nova linha, mas também "flusha" o buffer
+    // de saída, garantindo que a mensagem apareça imediatamente no console.
     std::cout << "[C++] Olá do mundo C++! A ligação FFI está funcionando." << std::endl;
 }
 
-/**
- * @brief Implementação de `perform_complex_calculation`.
- */
 int32_t perform_complex_calculation(int32_t input) {
-    // Realiza uma operação matemática simples para demonstrar a manipulação
-    // de dados passados pela FFI.
-    const int32_t result = (input * 2) + 10;
-    return result;
+    // Uma operação simples para provar que a manipulação de dados funciona.
+    return (input * 2) + 10;
 }
 
-/**
- * @brief Implementação de `get_string_length_from_cpp`.
- */
 int32_t get_string_length_from_cpp(const char* text) {
-    // PASSO DE SEGURANÇA CRÍTICO: Sempre verifique ponteiros que vêm de
-    // uma fronteira FFI. O código Rust pode, acidentalmente ou não, passar
-    // um ponteiro nulo. Acessar um ponteiro nulo resultaria em uma falha
-    // de segmentação (crash).
+    // A verificação de ponteiro nulo é a verificação de segurança mais
+    // importante em uma fronteira FFI. Nunca confie em ponteiros de código externo.
     if (text == nullptr) {
-        // Retornamos um código de erro, conforme definido em nosso contrato de API.
-        return -1;
+        return -1; // Retorna um código de erro, conforme definido no contrato da API.
     }
 
-    // `strlen` da biblioteca padrão `<cstring>` é a forma canônica e eficiente
-    // de calcular o comprimento de uma string no estilo C. Ele conta os
-    // caracteres até encontrar o caractere nulo terminador ('\0').
+    // `strlen` é a função padrão e otimizada para esta tarefa.
     size_t length = strlen(text);
 
-    // O tipo de retorno de `strlen` é `size_t`, que é um inteiro sem sinal.
-    // Nossa API define o retorno como `int32_t`. Fazemos um cast estático
-    // para converter o valor. Para comprimentos de string razoáveis, isso
-    // é seguro.
+    // Retornamos o comprimento como um `int32_t` para corresponder à nossa API
+    // e ao `i32` do Rust, fazendo um cast explícito para deixar a conversão clara.
     return static_cast<int32_t>(length);
 }
