@@ -1,0 +1,79 @@
+# ==============================================================================
+# Manifesto do Projeto 'gitph' para o Cargo
+#
+# Este arquivo (em formato TOML) é o coração da configuração de qualquer
+# projeto Rust. Ele define metadados, dependências e perfis de compilação.
+# ==============================================================================
+
+[package]
+# --- Metadados Essenciais do Pacote ---
+name    = "gitph"
+version = "0.1.0"
+authors = ["Seu Nome <seu.email@exemplo.com>"] # IMPORTANTE: Altere esta linha
+edition = "2021"
+license = "GPL-2.0"
+description = """
+Um assistente de linha de comando moderno e interativo para otimizar
+fluxos de trabalho com Git, GitHub e GitLab.
+"""
+repository = "https://github.com/phkaiser13/gitph" # Exemplo de URL do repositório
+
+# ==============================================================================
+# Dependências da Aplicação Principal
+# ==============================================================================
+[dependencies]
+# --- Para a Interface de Linha de Comando (CLI) e UI no Terminal ---
+# `clap` é o padrão de fato para parsing de argumentos de linha de comando.
+# Usaremos o feature "derive" para uma definição declarativa e fácil.
+clap = { version = "4.4", features = ["derive"] }
+
+# `dialoguer` fornece menus interativos, prompts de texto, seleções, etc.
+# Essencial para a experiência de "painel" que queremos criar.
+dialoguer = "0.11"
+
+# `console` oferece utilitários de baixo nível para o terminal, como
+# controle de cores e formatação de texto.
+console = "0.15"
+
+# `indicatif` é excelente para exibir spinners e barras de progresso,
+# dando feedback visual ao usuário durante operações longas (clone, push).
+indicatif = "0.17"
+
+
+# --- Para Chamadas de API (GitHub/GitLab) e Processamento de Dados ---
+# `reqwest` é um cliente HTTP ergonômico e poderoso para fazer chamadas de API.
+# O feature "json" já inclui o `serde_json` para nós.
+reqwest = { version = "0.11", features = ["json"] }
+
+# `serde` é o framework padrão para serialização e desserialização de dados
+# em Rust. Usaremos para converter respostas JSON das APIs em structs Rust.
+serde = { version = "1.0", features = ["derive"] }
+
+
+# --- Para Melhor Tratamento de Erros ---
+# `anyhow` simplifica o tratamento de erros em aplicações, fornecendo um
+# tipo de erro único e fácil de usar que pode encapsular qualquer erro.
+anyhow = "1.0"
+
+
+# ==============================================================================
+# Dependências Específicas para o Script de Build (build.rs)
+# ==============================================================================
+# Estas dependências NÃO são incluídas no binário final. Elas são usadas
+# apenas para executar nosso script `build.rs` antes da compilação principal.
+[build-dependencies]
+# O crate `cmake` nos permite encontrar e invocar o CMake para compilar
+# nosso módulo C++ de forma programática a partir do Rust.
+cmake = "0.1"
+
+
+# ==============================================================================
+# Perfis de Compilação
+# ==============================================================================
+# Aqui podemos otimizar o binário final para o lançamento.
+[profile.release]
+opt-level = 3          # Nível máximo de otimização.
+lto = true             # Ativa Link-Time Optimization para melhor performance/tamanho.
+codegen-units = 1      # Maximiza oportunidades de otimização ao custo de tempo de compilação.
+panic = "abort"        # Aborta em vez de desenrolar a pilha em um pânico, reduzindo o tamanho.
+strip = true           # Remove símbolos de debug do binário final, reduzindo drasticamente o tamanho.

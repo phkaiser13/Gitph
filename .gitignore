@@ -1,0 +1,79 @@
+# ==============================================================================
+# .gitignore para o projeto 'gitph'
+#
+# Este arquivo especifica arquivos e diretórios intencionalmente não rastreados
+# que o Git deve ignorar. A estrutura é organizada por tecnologia/propósito
+# para facilitar a manutenção.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Artefatos de Compilação e Dependências do Rust (Cargo)
+# ------------------------------------------------------------------------------
+# O diretório 'target' é onde o Cargo armazena todos os resultados de compilação
+# e dependências baixadas. Ele pode se tornar muito grande e nunca deve ser
+# versionado.
+/target/
+
+# O Cargo.lock NÃO deve ser ignorado para projetos de aplicação (binários),
+# pois ele garante builds reproduzíveis. Ele seria ignorado apenas para bibliotecas.
+
+# Arquivos de log de profiling e benchmarks
+*.rs.bk
+
+# ------------------------------------------------------------------------------
+# Artefatos de Compilação do C/C++ (CMake e Compiladores Genéricos)
+# ------------------------------------------------------------------------------
+# Diretórios de build comuns gerados pelo CMake ou manualmente.
+/build/
+/cmake-build-*/
+/out/
+
+# Arquivos de cache e internos do CMake.
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+
+# Bibliotecas compiladas (estáticas e dinâmicas) e arquivos de objeto.
+*.a
+*.lib
+*.so
+*.dll
+*.o
+*.obj
+
+# ------------------------------------------------------------------------------
+# Arquivos de Configuração de IDEs e Editores
+# ------------------------------------------------------------------------------
+# Visual Studio Code
+.vscode/
+
+# JetBrains (CLion,rustrover etc.)
+.idea/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ------------------------------------------------------------------------------
+# Arquivos Gerados pelo Sistema Operacional
+# ------------------------------------------------------------------------------
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# ------------------------------------------------------------------------------
+# Logs e Arquivos Diversos
+# ------------------------------------------------------------------------------
+# Arquivos de log genéricos que a aplicação pode gerar durante o desenvolvimento.
+*.log
+logs/
+
+# Arquivos de credenciais ou ambiente. Estes devem ser gerenciados localmente.
+.env
